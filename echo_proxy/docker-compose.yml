@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  ai-gateway-proxy:
+    build: .
+    container_name: local-ai-gatewayproxy
+    ports:
+      - "9999:9999"
+    networks:
+      - ai-gateway-network
+    restart: unless-stopped
+
+  # Example of another service using the proxy
+  # your-app:
+  #   image: your-app-image
+  #   environment:
+  #     - OPENAI_API_BASE=http://ai-gateway-proxy:9999/v1
+  #   networks:
+  #     - ai-gateway-network
+  #   depends_on:
+  #     - ai-gateway-proxy
+
+networks:
+  ai-gateway-network:
+    driver: bridge 

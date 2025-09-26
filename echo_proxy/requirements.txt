@@ -1,0 +1,10 @@
+# Web framework and server
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# HTTP client libraries
+httpx>=0.25.0
+requests>=2.31.0
+
+# Terminal output formatting
+colorama>=0.4.6
