@@ -1,4 +1,6 @@
 import os
+import json
+import base64
 from fastapi import FastAPI, Request, Response
 import httpx
 from colorama import Fore, Back, Style, init
@@ -9,10 +11,14 @@ init(autoreset=True)
 app = FastAPI()
 
 TARGET_URL =  os.getenv("TARGET_URL", "http://localhost:8080")
+ECHO_MODE = os.getenv("ECHO_MODE", "false").lower() in ("true", "1", "yes")
 
 
 print(f"{Fore.GREEN}Proxy Server Starting{Style.RESET_ALL}")
-print(f"{Style.DIM}Redirecting traffic to:{Style.RESET_ALL} {Fore.YELLOW}{TARGET_URL}{Style.RESET_ALL}")
+if ECHO_MODE:
+    print(f"{Fore.MAGENTA}Echo Mode: Enabled (all requests will return 200 without forwarding){Style.RESET_ALL}")
+else:
+    print(f"{Style.DIM}Redirecting traffic to:{Style.RESET_ALL} {Fore.YELLOW}{TARGET_URL}{Style.RESET_ALL}")
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
 async def proxy(request: Request, path: str):
@@ -33,6 +39,31 @@ async def proxy(request: Request, path: str):
         print(f"{Style.DIM}Body:{Style.RESET_ALL} {Fore.WHITE}{body_text}{Style.RESET_ALL}")
     except Exception:
         print(f"{Style.DIM}Body (raw):{Style.RESET_ALL} {Fore.WHITE}{body}{Style.RESET_ALL}")
+
+    # If echo mode is enabled, return 200 without forwarding
+    if ECHO_MODE:
+        # Try to decode body as text, fall back to base64 for binary data
+        try:
+            body_content = body.decode() if body else ""
+        except UnicodeDecodeError:
+            body_content = f"<binary data, base64: {base64.b64encode(body).decode()}>"
+        
+        echo_response = {
+            "echo": True,
+            "method": method,
+            "path": path,
+            "headers": headers,
+            "body": body_content
+        }
+        print(f"\n{Back.MAGENTA}{Fore.WHITE} ECHO RESPONSE {Style.RESET_ALL}")
+        print(f"{Fore.GREEN}Status: 200 OK{Style.RESET_ALL}")
+        print(f"{Style.DIM}Echoing request without forwarding{Style.RESET_ALL}")
+        
+        return Response(
+            content=json.dumps(echo_response, indent=2),
+            status_code=200,
+            headers={"content-type": "application/json"}
+        )
 
     # Configure client with no timeouts and increased limits
     timeout = httpx.Timeout(None)  # No timeout

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
+import os
 import requests
 
 def main():
-    base_url = "http://localhost:9090/mcp"
+    base_url = os.getenv("BASE_URL", "http://localhost:9090/mcp")
 
     # Initialize connection
     init_payload = {
