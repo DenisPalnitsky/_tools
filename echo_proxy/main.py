@@ -1,9 +1,15 @@
 import os
 import json
-import base64
+import warnings
+from datetime import datetime
 from fastapi import FastAPI, Request, Response
 import httpx
 from colorama import Fore, Back, Style, init
+
+# Suppress the pkg_resources deprecation warning from old protobuf versions
+warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
+
+from formatter import format_body
 
 # Initialize colorama for cross-platform colored output
 init(autoreset=True)
@@ -30,32 +36,27 @@ async def proxy(request: Request, path: str):
     # Remove host header to avoid forwarding issues
     headers.pop('host', None)
 
-    print(f"\n{Back.BLUE}{Fore.WHITE} INCOMING REQUEST {Style.RESET_ALL}")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    print(f"\n{Back.BLUE}{Fore.WHITE} INCOMING REQUEST {Style.RESET_ALL} {Fore.CYAN}{timestamp}{Style.RESET_ALL}")
     print(f"{Style.DIM}URL:{Style.RESET_ALL} {Fore.WHITE}{request.url}{Style.RESET_ALL}")
     print(f"{Style.DIM}Method:{Style.RESET_ALL} {Fore.YELLOW}{method}{Style.RESET_ALL}")
     print(f"{Style.DIM}Headers:{Style.RESET_ALL} {Fore.WHITE}{headers}{Style.RESET_ALL}")
-    try:
-        body_text = body.decode()
-        print(f"{Style.DIM}Body:{Style.RESET_ALL} {Fore.WHITE}{body_text}{Style.RESET_ALL}")
-    except Exception:
-        print(f"{Style.DIM}Body (raw):{Style.RESET_ALL} {Fore.WHITE}{body}{Style.RESET_ALL}")
+    
+    content_type = headers.get("content-type", "")
+    formatted_body = format_body(body, content_type)
+    print(f"{Style.DIM}Body:{Style.RESET_ALL} {Fore.WHITE}{formatted_body}{Style.RESET_ALL}")
 
     # If echo mode is enabled, return 200 without forwarding
     if ECHO_MODE:
-        # Try to decode body as text, fall back to base64 for binary data
-        try:
-            body_content = body.decode() if body else ""
-        except UnicodeDecodeError:
-            body_content = f"<binary data, base64: {base64.b64encode(body).decode()}>"
-        
         echo_response = {
             "echo": True,
             "method": method,
             "path": path,
             "headers": headers,
-            "body": body_content
+            "body": formatted_body
         }
-        print(f"\n{Back.MAGENTA}{Fore.WHITE} ECHO RESPONSE {Style.RESET_ALL}")
+        response_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        print(f"\n{Back.MAGENTA}{Fore.WHITE} ECHO RESPONSE {Style.RESET_ALL} {Fore.CYAN}{response_timestamp}{Style.RESET_ALL}")
         print(f"{Fore.GREEN}Status: 200 OK{Style.RESET_ALL}")
         print(f"{Style.DIM}Echoing request without forwarding{Style.RESET_ALL}")
         
@@ -78,18 +79,18 @@ async def proxy(request: Request, path: str):
             follow_redirects=True,
         )
 
-    print(f"\n{Back.GREEN}{Fore.WHITE} OUTGOING RESPONSE {Style.RESET_ALL}")
+    response_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    print(f"\n{Back.GREEN}{Fore.WHITE} OUTGOING RESPONSE {Style.RESET_ALL} {Fore.CYAN}{response_timestamp}{Style.RESET_ALL}")
     
     # Color status code based on HTTP status
     status_color = Fore.GREEN if 200 <= resp.status_code < 300 else Fore.YELLOW if 300 <= resp.status_code < 400 else Fore.RED
     print(f"{Style.DIM}Status:{Style.RESET_ALL} {status_color}{resp.status_code}{Style.RESET_ALL}")
     print(f"{Style.DIM}URL:{Style.RESET_ALL} {Fore.WHITE}{resp.url}{Style.RESET_ALL}")
     print(f"{Style.DIM}Headers:{Style.RESET_ALL} {Fore.WHITE}{dict(resp.headers)}{Style.RESET_ALL}")
-    try:
-        response_text = resp.text
-        print(f"{Style.DIM}Body:{Style.RESET_ALL} {Fore.WHITE}{response_text}{Style.RESET_ALL}")
-    except Exception:
-        print(f"{Style.DIM}Body (raw):{Style.RESET_ALL} {Fore.WHITE}{resp.content}{Style.RESET_ALL}")
+    
+    response_content_type = resp.headers.get("content-type", "")
+    formatted_response = format_body(resp.content, response_content_type)
+    print(f"{Style.DIM}Body:{Style.RESET_ALL} {Fore.WHITE}{formatted_response}{Style.RESET_ALL}")
 
     return Response(
         content=resp.content,

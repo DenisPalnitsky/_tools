@@ -19,6 +19,18 @@ export ECHO_MODE=true
 
 When `ECHO_MODE` is enabled, the proxy will respond to all requests with a 200 status code and a JSON body containing the request details, without forwarding the request to the target URL. This is useful for testing and debugging.
 
+## Features
+
+- **Automatic body formatting**: The proxy automatically formats request and response bodies based on content-type:
+  - JSON: Pretty-printed with indentation
+  - XML: Pretty-printed with indentation
+  - Protobuf: Decoded to JSON format (requires `blackboxprotobuf`)
+  - Binary data: Base64 encoded
+  - Plain text: Displayed as-is
+- **Colored terminal output**: Easy-to-read color-coded request/response logs
+- **Timestamps**: Each request and response is timestamped with millisecond precision
+- **Echo mode**: Test mode that returns 200 OK without forwarding requests
+
 
 
 ## Run locally
