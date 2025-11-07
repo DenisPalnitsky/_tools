@@ -2,6 +2,7 @@ import os
 import json
 import warnings
 from datetime import datetime
+from urllib.parse import urljoin
 from fastapi import FastAPI, Request, Response
 import httpx
 from colorama import Fore, Back, Style, init
@@ -19,6 +20,9 @@ app = FastAPI()
 TARGET_URL =  os.getenv("TARGET_URL", "http://localhost:8080")
 ECHO_MODE = os.getenv("ECHO_MODE", "false").lower() in ("true", "1", "yes")
 
+# Track last request time for smart spacing
+last_request_time = None
+
 
 print(f"{Fore.GREEN}Proxy Server Starting{Style.RESET_ALL}")
 if ECHO_MODE:
@@ -28,17 +32,33 @@ else:
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
 async def proxy(request: Request, path: str):
+    global last_request_time
+    
+    # Smart spacing: add separator if more than a minute has passed
+    current_time = datetime.now()
+    if last_request_time is not None:
+        time_diff = (current_time - last_request_time).total_seconds()
+        if time_diff > 60:  # More than a minute
+            print("\n\n\n----------------------------------------------------------------------\n\n\n")
+    last_request_time = current_time
+    
     method = request.method    
-    url = f"{TARGET_URL}/{path}"
+    # Properly construct the target URL with query parameters
+    query_string = str(request.url.query) if request.url.query else ""
+    target_path = path if path else ""
+    url = urljoin(TARGET_URL + "/", target_path)
+    if query_string:
+        url = f"{url}?{query_string}"
     body = await request.body()
     headers = dict(request.headers)
 
     # Remove host header to avoid forwarding issues
     headers.pop('host', None)
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-    print(f"\n{Back.BLUE}{Fore.WHITE} INCOMING REQUEST {Style.RESET_ALL} {Fore.CYAN}{timestamp}{Style.RESET_ALL}")
+    timestamp = current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    print(f"\n\n\n{Back.BLUE}{Fore.WHITE} INCOMING REQUEST {Style.RESET_ALL} {Fore.CYAN}{timestamp}{Style.RESET_ALL}")
     print(f"{Style.DIM}URL:{Style.RESET_ALL} {Fore.WHITE}{request.url}{Style.RESET_ALL}")
+    print(f"{Style.DIM}Target URL:{Style.RESET_ALL} {Fore.CYAN}{url}{Style.RESET_ALL}")
     print(f"{Style.DIM}Method:{Style.RESET_ALL} {Fore.YELLOW}{method}{Style.RESET_ALL}")
     print(f"{Style.DIM}Headers:{Style.RESET_ALL} {Fore.WHITE}{headers}{Style.RESET_ALL}")
     
@@ -70,13 +90,25 @@ async def proxy(request: Request, path: str):
     timeout = httpx.Timeout(None)  # No timeout
     limits = httpx.Limits(max_keepalive_connections=100, max_connections=1000)
     
-    async with httpx.AsyncClient(timeout=timeout, limits=limits) as client:
-        resp = await client.request(
-            method,
-            url,
-            content=body,
-            headers=headers,
-            follow_redirects=True,
+    try:
+        async with httpx.AsyncClient(timeout=timeout, limits=limits) as client:
+            resp = await client.request(
+                method,
+                url,
+                content=body,
+                headers=headers,
+                follow_redirects=True,
+            )
+    except httpx.ConnectError as e:
+        error_msg = f"Failed to connect to target: {url}. Error: {str(e)}"
+        print(f"\n{Back.RED}{Fore.WHITE} CONNECTION ERROR {Style.RESET_ALL}")
+        print(f"{Fore.RED}{error_msg}{Style.RESET_ALL}")
+        print(f"{Style.DIM}TARGET_URL env variable:{Style.RESET_ALL} {Fore.YELLOW}{TARGET_URL}{Style.RESET_ALL}")
+        print(f"{Style.DIM}Make sure the target server is running and accessible{Style.RESET_ALL}")
+        return Response(
+            content=json.dumps({"error": error_msg}, indent=2),
+            status_code=502,
+            headers={"content-type": "application/json"}
         )
 
     response_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
@@ -101,7 +133,7 @@ async def proxy(request: Request, path: str):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 9090))
-    host = os.getenv("HOST", "0.0.0.0")
+    host = os.getenv("HOST", "0.0.0.0") 
     
     print(f"{Fore.CYAN}Starting server on {host}:{port}{Style.RESET_ALL}")
     uvicorn.run(app, host=host, port=port)
