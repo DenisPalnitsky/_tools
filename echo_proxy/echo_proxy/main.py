@@ -10,7 +10,7 @@ from colorama import Fore, Back, Style, init
 # Suppress the pkg_resources deprecation warning from old protobuf versions
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 
-from formatter import format_body
+from .formatter import format_body
 
 # Initialize colorama for cross-platform colored output
 init(autoreset=True)

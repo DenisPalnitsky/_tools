@@ -35,10 +35,16 @@ When `ECHO_MODE` is enabled, the proxy will respond to all requests with a 200 s
 
 ## Run locally
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python main.py
+# Install uv if you haven't already
+# curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies and run
+uv run main.py
+```
+
+Or use the provided script:
+```bash
+./run-local.sh
 ```
 
 ## Run with Docker

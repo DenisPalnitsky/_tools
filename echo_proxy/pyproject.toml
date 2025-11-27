@@ -1,0 +1,21 @@
+[project]
+name = "echo-proxy"
+version = "0.1.0"
+description = "A simple proxy server that echoes the request and response"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "httpx>=0.25.0",
+    "requests>=2.31.0",
+    "colorama>=0.4.6",
+    "blackboxprotobuf>=1.0.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = []
