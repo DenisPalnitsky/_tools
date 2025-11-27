@@ -86,7 +86,7 @@ def start_http_server(port=9999):
 
 
 def main():
-    #mcp_url = "https://api.githubcopilot.com/mcp"    
+    mcp_url = "https://api.githubcopilot.com/mcp"    
     session = requests.Session()
 
     print("MCP OAuth Client")
